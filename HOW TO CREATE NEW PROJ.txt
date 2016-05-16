@@ -1,0 +1,79 @@
+1. Project - New uVision Project - PROJ_NAME.uvprojx
+
+2. Select nRF52Series- nRF528322_xxAA
+
+3. In Manage Run-Time Environment
+ - Select CMSIS-CORE
+ - Select CMSIS-DSP
+ - Select Device-Startup
+
+4. Make groups
+ - Application
+ - Board Support
+ - nRF_BLE
+ - nRF_Drivers
+ - nRF_Libraries
+ - nRF_SoftDevice
+
+
+5. Include files
+ - Group "Board Support"
+   - bsp/bsp.c
+   - bsp/bsp_btn_ble.c
+
+ - Group "nRF_BLE"
+   - components/ble/common/ble_advdata.c
+   - components/ble/ble_advertising/ble_advertising.c
+   - components/ble/common/ble_conn_params.c
+   - components/ble/ble_services/ble_nus/ble_nus.c
+   - components/ble/common/ble_srv_common.c
+
+ - Group "nRF_Drivers"
+   - components/drivers_nrf/uart/app_uart_fifo.c
+   - components/ble/ble_advertising/ble_advertising.c
+   - components/ble/common/ble_conn_params.c
+   - components/ble/ble_services/ble_nus/ble_nus.c
+   - components/ble/common/ble_srv_common.c
+   - components/ble/common/ble_srv_common.c
+   - components/ble/common/ble_srv_common.c
+
+ - Group "nRF_Libraries"
+   - components/ble/common/ble_advdata.c
+   - components/ble/ble_advertising/ble_advertising.c
+   - components/ble/common/ble_conn_params.c
+   - components/ble/ble_services/ble_nus/ble_nus.c
+   - components/ble/common/ble_srv_common.c
+   - components/ble/common/ble_srv_common.c
+   - components/ble/common/ble_srv_common.c
+
+
+6. Target Options
+
+ - Target Tab
+    - Xtal(MHz) : 64.0
+    - Read/Only Memory Areas
+      - IROM1 : 0x1F000 / 0x61000
+    - Read/Write Memory Areas
+      - IRAM1 : 0x2000000 / 0x10000
+
+    - Uncheck MicroLIB
+
+  - Output Tab
+    - Change Name of Executable
+    - Check "Debug Information"
+    - Check "Create HEX File"
+    - Check "Browse Information"
+
+  - C/C++ Tab
+    - Preprocessor Symbols
+       Define : BLE_STACK_SUPPORT_REQD BOARD_PCA10036 CONFIG_GPIO_AS_PINRESET S132 NRF52 SOFTDEVICE_PRESENT SWI_DISABLE0
+    - Warnings : <unspecified>
+    - Include Paths ..\..\..\config;..\..\..\..\..\bsp;..\..\..\..\..\..\components\softdevice\s132\headers;..\..\..\..\..\..\components\softdevice\s132\headers\nrf52;..\..\..\..\..\..\components\ble\common;..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\components\libraries\uart;..\..\..\..\..\..\components\libraries\button;..\..\..\..\..\..\components\ble\ble_services\ble_nus;..\..\..\..\..\..\components\ble\ble_advertising;..\..\..\..\..\..\components\device;..\..\..\..\..\..\components\toolchain;..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\components\libraries\fifo;..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\components\drivers_nrf\config;..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\components\drivers_nrf\gpiote;..\..\..\..\..\..\components\softdevice\common\softdevice_handler;..\..\..\..\..\..\components\libraries\timer;..\..\..\..\..\..\components\drivers_nrf\delay;..\..\..\..\..\..\components\libraries\trace;..\..\..\..\..\..\components\drivers_nrf\pstorage;..\..\..\..\..\..\components\drivers_nrf\twi_master
+    - Misc Controls
+
+  - Linker Tab
+    - Check Use Memory Layout from Target Dialog
+
+  - Debug Tab
+    - Use : J-LINK / J-TRACE Cortex
+
