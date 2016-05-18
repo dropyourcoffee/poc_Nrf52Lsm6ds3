@@ -437,50 +437,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
     {
         APP_ERROR_HANDLER(p_event->data.error_code);
     }
-		/*static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    static uint8_t index = 0;
-    uint32_t       err_code;
 
-		
-	 switch (p_event->evt_type)
-    {
-        case APP_UART_DATA_READY:
-            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-            index++;
-									if(rx_received){
-											uint8_t data_wr[20];
-											memcpy(rx_data,data_wr,20);
-											for (uint32_t i = 0; i < 20; i++)
-												{
-												while(app_uart_put(data_wr[i]) != NRF_SUCCESS);
-												}
-												app_uart_put('\n');
-											err_code = ble_nus_string_send(&m_nus, data_wr, index);
-											rx_received = false;
-										}
-            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-            {
-							  err_code = ble_nus_string_send(&m_nus, data_array, index);
-                if (err_code != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(err_code);
-                }
-                
-                index = 0;
-            }
-            break;
-
-        case APP_UART_COMMUNICATION_ERROR:
-            APP_ERROR_HANDLER(p_event->data.error_communication);
-            break;
-
-        case APP_UART_FIFO_ERROR:
-            APP_ERROR_HANDLER(p_event->data.error_code);
-            break;
-
-        default:
-            break;
-    }*/
 }
 /**@snippet [Handling the data received over UART] */
 
