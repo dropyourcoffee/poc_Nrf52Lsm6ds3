@@ -28,7 +28,7 @@
 
 #include "nrf_uart.h"
 #ifdef NRF52
-#include "nrf_uart.h"
+#include "nrf_uarte.h"
 #endif
 
 #include "sdk_errors.h"

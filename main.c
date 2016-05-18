@@ -674,6 +674,7 @@ void readData(){
 	val = (val<<8) +tmp;
 	
 	data.accel.x = (float)val;
+//	printf("raw hex : %.4x\n",val);
 	data.accel.x = data.accel.x / 1668.4f ;
 	
 	char data_wr[20];
