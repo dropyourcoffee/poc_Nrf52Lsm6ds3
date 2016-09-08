@@ -742,8 +742,11 @@ void readData(){
 	
 	data.accel.z = (float) fifoData/835.918367;
 	
-	printf("%2.2f , %2.2f, %2.2f  \n",data.accel.x, data.accel.y, data.accel.z);
-	
+	char data_wr[20];
+	sprintf(data_wr,"%2.2f,%2.2f,%2.2f ",data.accel.x, data.accel.y, data.accel.z);
+	printf("accel data : %s\n",data_wr);
+	ble_nus_string_send(&m_nus, data_wr, 20);
+
 }
 
 
