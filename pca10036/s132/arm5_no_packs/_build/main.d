@@ -60,3 +60,4 @@
 .\_build\main.o: ..\..\..\components\libraries\util\sdk_errors.h
 .\_build\main.o: ..\..\..\config.h
 .\_build\main.o: ..\..\..\MPU6050.h
+.\_build\main.o: ..\..\..\LSM6DS3.h

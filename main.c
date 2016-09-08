@@ -40,6 +40,7 @@
 #include "nrf_drv_twi.h"
 #include "config.h"
 #include "MPU6050.h"
+#include "LSM6DS3.h"
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
@@ -63,7 +64,7 @@
 
 const char MSG_LINE[] = "===========================================\r\n";
 const char MID_LINE[] =   "-------------------------------------------\r\n\n";
-#define START_STRING     "          **   MPU6050 MOCKUP  **\n"                                /**< The string that will be sent over the UART when the application starts. */
+#define START_STRING     "          **   LSM6DS3 MOCKUP  **\n"                                /**< The string that will be sent over the UART when the application starts. */
 
 #define DEAD_BEEF                       0xDEADBEEF                                  /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
@@ -72,14 +73,17 @@ const char MID_LINE[] =   "-------------------------------------------\r\n\n";
 
 
 static const nrf_drv_twi_t m_twi_master = NRF_DRV_TWI_INSTANCE(MASTER_TWI_INST);
+void printHelp();
 void func1(void);
-void toggleMPU_RDY();
 static ret_code_t write_register(size_t addr, uint8_t pdata);
 static ret_code_t read_register(size_t addr, uint8_t * pdata);
 ret_code_t I2CwriteBits(uint8_t devAddr, uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data);
 ret_code_t I2CwriteBit(uint8_t devAddr, uint8_t regAddr, uint8_t bitNum, uint8_t data);
 static ret_code_t twi_master_init(void);
 void readData();
+void fifoBegin();
+uint16_t fifoGetStatus(void);
+uint16_t fifoRead( void );
 
 typedef struct{
 	struct{
@@ -104,7 +108,6 @@ static uint16_t                         m_conn_handle = BLE_CONN_HANDLE_INVALID;
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 static bool rx_received = false;
 static uint8_t rx_data[20];
-uint8_t mpu_rdy = 0;
 data_t data = {{0,0,0},{0,0,0}};
 
 
@@ -556,38 +559,35 @@ int main(void)
     
 	  err_code = twi_master_init();
     APP_ERROR_CHECK(err_code);
-	printf("twi_master Initialised\n");
-		
+    printHelp();
     // Enter main loop.
     for (;;)
     {
       uint8_t c = 0;
 			while(c == 0)
         {
-            if(mpu_rdy){
-							printf("accelx : %2.4f\n",data.accel.x);
-						}
-						
-						c = getchar();
+          c = getchar();
         }
         switch((char)c)
         {
-        case '\n':
+        default:
+					printf("You selected %c\n", (char)c);
+				
+				case '\n':
         case '\r':
             break;
-        case 'p':
-            printf("p\n");
-						func1();
+        
+				case '1':
+            func1();
             break;
-        case 'l':
-            toggleMPU_RDY();
-            break;
-        case 'c':
+        
+				case '2':
             readData();
             break;
-        default:
-            printf("You selected %c\n", (char)c);
-            break;
+				
+				case '?':
+						printHelp();
+				
         }
 				//power_manage();
         }
@@ -600,49 +600,152 @@ int main(void)
  * @}
  */
 
+void printHelp(){
+	printf("     COMMAND LIST  \n");
+	printf("1 :  Initialise Accel Gyro\n");
+	printf("2 :  Get Instantial Data\n");
+	printf("? :  Print Command List\n");
+						
+}
 
 void func1(void){
-	printf("func1()\n");
-	printf("mpu6050 Default Address : 0x%.4x\n",MPU6050_DEFAULT_ADDRESS);
-	write_register(MPU6050_RA_PWR_MGMT_1,  1);
+	printf("mpu init()\n");
+	printf("LMS6DS3 Default Address : 0x%.4x\n",LSM6DS3_SLAVE_ADDR);
+	
 	uint8_t rd;
-	read_register(MPU6050_RA_PWR_MGMT_1,  &rd);
+	printf("Testing Connection... ");
+	read_register(LSM6DS3_ACC_GYRO_WHO_AM_I_REG,  &rd);
+	//printf("who_am_i reg : 0x%.2x\n",rd);
+	printf("%s\n", (rd==(LSM6DS3_SLAVE_ADDR-0x2))?"Successful":"Failed" );
 	
-	write_register(MPU6050_RA_GYRO_CONFIG,  MPU6050_GYRO_FS_250<<3); // Gyro Config Addr : 0x1B
-	write_register(MPU6050_RA_ACCEL_CONFIG,  MPU6050_ACCEL_FS_2<<3); // Accel Config Addr : 0x1C
 	
-	I2CwriteBit(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_PWR_MGMT_1, MPU6050_PWR1_SLEEP_BIT, false);
+	uint8_t dataToWrite = 0;
+	
+	
+	printf("Set Accelerometer..\n");
+	dataToWrite |= LSM6DS3_ACC_GYRO_BW_XL_100Hz; // BandWith = 100hz
+	dataToWrite |= LSM6DS3_ACC_GYRO_FS_XL_4g;
+	dataToWrite |= LSM6DS3_ACC_GYRO_ODR_XL_208Hz;
+	write_register(LSM6DS3_ACC_GYRO_CTRL1_XL, dataToWrite);
+	read_register(LSM6DS3_ACC_GYRO_CTRL4_C,  &rd);
+	dataToWrite &= ~((uint8_t)LSM6DS3_ACC_GYRO_BW_SCAL_ODR_ENABLED);
+	if(true) dataToWrite |= LSM6DS3_ACC_GYRO_BW_SCAL_ODR_ENABLED; // supposed to be if(settings.accelODRoff)
+	write_register(LSM6DS3_ACC_GYRO_CTRL4_C, dataToWrite);
+	
+	printf("Set Gyrometer..\n");
+	dataToWrite = 0;
+	dataToWrite |= LSM6DS3_ACC_GYRO_FS_G_2000dps;
+	dataToWrite |= LSM6DS3_ACC_GYRO_ODR_G_208Hz;
+	write_register(LSM6DS3_ACC_GYRO_CTRL2_G, dataToWrite);
+	
+	printf("FIFO Setup..\n");
+	fifoBegin();
+	//readRegister(&dataToWrite, LSM6DS3_ACC_GYRO_CTRL4_C);
+	
+	//write_register(MPU6050_RA_GYRO_CONFIG,  MPU6050_GYRO_FS_250<<3); // Gyro Config Addr : 0x1B
+  //	write_register(MPU6050_RA_ACCEL_CONFIG,  MPU6050_ACCEL_FS_2<<3); // Accel Config Addr : 0x1C
+	
+	//I2CwriteBit(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_PWR_MGMT_1, MPU6050_PWR1_SLEEP_BIT, false);
 	
 	// Test Connection
-	read_register(MPU6050_RA_WHO_AM_I,  &rd);
-	printf("Test Connection.. %s\n", (rd==MPU6050_DEFAULT_ADDRESS)?"Successful":"Failed" );
 	
 	
 	
 	
+}
+
+
+
+void fifoBegin(){
+	
+	int threshold = 3000;
+	
+	uint8_t thresholdLByte = threshold & 0x00FF;
+	uint8_t thresholdHByte = (threshold & 0x0F00) >> 8;
+	//Pedo bits not configured (ctl2)
+
+	//CONFIGURE FIFO_CTRL3
+	uint8_t tempFIFO_CTRL3 = 0;
+	
+	if (true) // settings.gyroFifoEnabled == 1
+	{
+		//Set up gyro stuff
+		//Build on FIFO_CTRL3
+		//Set decimation
+		tempFIFO_CTRL3 |= (1 & 0x07) << 3;
+
+	}
+	if (true) // settings.accelFifoEnabled == 1
+	{
+		//Set up accelerometer stuff
+		//Build on FIFO_CTRL3
+		//Set decimation
+		tempFIFO_CTRL3 |= ( 1 & 0x07); // 1 = settings.accelFifoDecimation
+	}
+
+	//CONFIGURE FIFO_CTRL4  (nothing for now-- sets data sets 3 and 4
+	uint8_t tempFIFO_CTRL4 = 0;
+
+	//CONFIGURE FIFO_CTRL5
+	uint8_t tempFIFO_CTRL5 = 0;
+	tempFIFO_CTRL5 |= LSM6DS3_ACC_GYRO_ODR_FIFO_10Hz;
+
+	//Hard code the fifo mode here:
+	//tempFIFO_CTRL5 |= settings.fifoModeWord = 6;  //set mode:
+
+	//Write the data
+	write_register(LSM6DS3_ACC_GYRO_FIFO_CTRL1, thresholdLByte);
+	//Serial.println(thresholdLByte, HEX);
+	write_register(LSM6DS3_ACC_GYRO_FIFO_CTRL2, thresholdHByte);
+	//Serial.println(thresholdHByte, HEX);
+	write_register(LSM6DS3_ACC_GYRO_FIFO_CTRL3, tempFIFO_CTRL3);
+	write_register(LSM6DS3_ACC_GYRO_FIFO_CTRL4, tempFIFO_CTRL4);
+	write_register(LSM6DS3_ACC_GYRO_FIFO_CTRL5, tempFIFO_CTRL5);
+
+}
+
+
+uint16_t fifoGetStatus(){
+	uint8_t tempReadByte = 0;
+	uint16_t tempAccumulator = 0;
+	read_register(LSM6DS3_ACC_GYRO_FIFO_STATUS1,&tempReadByte);
+	tempAccumulator = tempReadByte;
+	read_register(LSM6DS3_ACC_GYRO_FIFO_STATUS2,&tempReadByte);
+	tempAccumulator |= (tempReadByte << 8);
 }
 
 void readData(){
-	uint8_t tmp;
-	int16_t val;
-	read_register(MPU6050_RA_ACCEL_XOUT_H, &tmp);
-	val = tmp;
-	read_register(MPU6050_RA_ACCEL_XOUT_L, &tmp);
-	val = (val<<8) +tmp;
+	int16_t fifoData = 0;
+	uint8_t tempReadByte;
+
+	// Accel x
+	if(read_register(LSM6DS3_ACC_GYRO_OUTX_L_XL,&tempReadByte)) return;
+	fifoData = tempReadByte;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTX_H_XL,&tempReadByte)) return;
+	fifoData |= (tempReadByte << 8);
 	
-	data.accel.x = (float)val;
-//	printf("raw hex : %.4x\n",val);
-	data.accel.x = data.accel.x / 1668.4f ;
+	data.accel.x = (float) fifoData/835.918367;
 	
-	char data_wr[20];
-	sprintf(data_wr,"%2.4f",data.accel.x);
-	ble_nus_string_send(&m_nus, data_wr, 5);
+	// Accel y
+	if(read_register(LSM6DS3_ACC_GYRO_OUTY_L_XL,&tempReadByte)) return;
+	fifoData = tempReadByte;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTY_H_XL,&tempReadByte)) return;
+	fifoData |= (tempReadByte << 8);
+	
+	data.accel.y = (float) fifoData/835.918367;
+	
+	// Accel z
+	if(read_register(LSM6DS3_ACC_GYRO_OUTZ_L_XL,&tempReadByte)) return;
+	fifoData = tempReadByte;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTZ_H_XL,&tempReadByte)) return;
+	fifoData |= (tempReadByte << 8);
+	
+	data.accel.z = (float) fifoData/835.918367;
+	
+	printf("%2.2f , %2.2f, %2.2f  \n",data.accel.x, data.accel.y, data.accel.z);
 	
 }
 
-void toggleMPU_RDY(){
-		mpu_rdy = !mpu_rdy;
-}
 
 static ret_code_t read_register(size_t addr, uint8_t * pdata){
 	 ret_code_t ret;
@@ -650,13 +753,12 @@ static ret_code_t read_register(size_t addr, uint8_t * pdata){
 		do
     {
        uint8_t addr8 = (uint8_t)addr;
-       ret = nrf_drv_twi_tx(&m_twi_master, MPU6050_DEFAULT_ADDRESS, &addr8, 1, true);
+       ret = nrf_drv_twi_tx(&m_twi_master, LSM6DS3_SLAVE_ADDR, &addr8, 1, true);
        if(NRF_SUCCESS != ret)
        {
-          
 				 break;
        }
-       ret = nrf_drv_twi_rx(&m_twi_master, MPU6050_DEFAULT_ADDRESS, pdata,1, false);
+       ret = nrf_drv_twi_rx(&m_twi_master, LSM6DS3_SLAVE_ADDR, pdata,1, false);
 			 i++;
     }while(0);
 		
@@ -666,16 +768,16 @@ static ret_code_t read_register(size_t addr, uint8_t * pdata){
 static ret_code_t write_register(size_t addr, uint8_t pdata)
 {
     ret_code_t ret;
-		printf("writing %02x on REG %02x..\n",pdata,addr);
+		printf("writing 0x%02x on REG 0x%02x..\n",pdata,addr);
     do
     {
         uint8_t addr8 = (uint8_t)addr;
-        ret = nrf_drv_twi_tx(&m_twi_master, MPU6050_DEFAULT_ADDRESS, &addr8, 1, true);
+        ret = nrf_drv_twi_tx(&m_twi_master, LSM6DS3_SLAVE_ADDR, &addr8, 1, true);
         if(NRF_SUCCESS != ret)
         {
-            break;
+          break;
         }
-        ret = nrf_drv_twi_tx(&m_twi_master, MPU6050_DEFAULT_ADDRESS, &pdata, 1, false);
+        ret = nrf_drv_twi_tx(&m_twi_master, LSM6DS3_SLAVE_ADDR, &pdata, 1, false);
     }while(0);
     return ret;
 }
