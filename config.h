@@ -21,8 +21,10 @@
     #define UART_TX_BUF_SIZE         1024 //!< UART TX buffer size.
     #define UART_RX_BUF_SIZE         32   //!< UART RX buffer size
     
-    #define TWI_SCL_M                3   //!< Master SCL pin
-    #define TWI_SDA_M                4   //!< Master SDA pin
+    #define TWI_SCL_M                25   //!< Master SCL pin
+    #define TWI_SDA_M                26  //!< Master SDA pin
+    #define TWI_INT1_M                28  //!< Master SDA pin
+    
     #define MASTER_TWI_INST          0    //!< TWI interface used as a master accessing EEPROM memory
 
     #define IN_LINE_PRINT_CNT        16  //<! Number of data bytes printed in single line
