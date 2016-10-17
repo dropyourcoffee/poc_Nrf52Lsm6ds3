@@ -1,5 +1,6 @@
 --cpu Cortex-M4.fp
 ".\_build\main.o"
+".\_build\zikto_ast.o"
 ".\_build\bsp.o"
 ".\_build\bsp_btn_ble.o"
 ".\_build\ble_advdata.o"

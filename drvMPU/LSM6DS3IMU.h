@@ -27,10 +27,14 @@ Distributed as-is; no warranty is given.
 #ifndef __LSM6DS3IMU_H__
 #define __LSM6DS3IMU_H__
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 #include "stdint.h"
 
-#define I2C_MODE 0
-#define SPI_MODE 1
+#define I2C_MODE 1
+#define SPI_MODE 0
 
 // Return values 
 typedef enum
@@ -54,7 +58,6 @@ typedef enum
 public:
 	LSM6DS3Core( uint8_t );
 	LSM6DS3Core( uint8_t, uint8_t );
-	~LSM6DS3Core() = default;
 	
 	status_t beginCore( void );
 	
@@ -87,7 +90,7 @@ private:
 	uint8_t I2CAddress;
 	uint8_t chipSelectPin;
 
-};*/
+};
 
 //This struct holds the settings the driver uses to do calculations
 struct SensorSettings {
@@ -130,7 +133,7 @@ struct SensorSettings {
 //method through it's own begin() method.  It also contains the
 //settings struct to hold user settings.
 
-/*class LSM6DS3 : public LSM6DS3Core
+class LSM6DS3 : public LSM6DS3Core
 {
 public:
 	//IMU settings
@@ -143,7 +146,6 @@ public:
 	//Constructor generates default SensorSettings.
 	//(over-ride after construction if desired)
 	LSM6DS3( uint8_t busType = I2C_MODE, uint8_t inputArg = 0x6B );
-	~LSM6DS3() = default;
 	
 	//Call to apply SensorSettings
 	status_t begin(void);
@@ -2081,4 +2083,10 @@ typedef enum {
 	LSM6DS3_ACC_GYRO_INT2_SLEEP_ENABLED 		 = 0x80,
 } LSM6DS3_ACC_GYRO_INT2_SLEEP_t;
 
+
+#ifdef __cplusplus
+}
+#endif
+
+    
 #endif  // End of __LSM6DS3IMU_H__ definition check
