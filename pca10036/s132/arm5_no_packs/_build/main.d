@@ -58,6 +58,11 @@
 .\_build\main.o: ..\..\..\components\drivers_nrf\hal\nrf_twi.h
 .\_build\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
 .\_build\main.o: ..\..\..\components\libraries\util\sdk_errors.h
+.\_build\main.o: ..\..\..\components\drivers_nrf\delay\nrf_delay.h
 .\_build\main.o: ..\..\..\config.h
 .\_build\main.o: ..\..\..\MPU6050.h
-.\_build\main.o: ..\..\..\LSM6DS3.h
+.\_build\main.o: ..\..\..\drvMPU\LSM6DS3IMU.h
+.\_build\main.o: ..\..\..\util\zikto_ast.h
+.\_build\main.o: ..\..\..\components\drivers_nrf\clock\nrf_drv_clock.h
+.\_build\main.o: ..\..\..\components\libraries\util\nrf_assert.h
+.\_build\main.o: ..\..\..\components\drivers_nrf\hal\nrf_clock.h

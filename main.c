@@ -38,9 +38,11 @@
 #include "bsp.h"
 #include "bsp_btn_ble.h"
 #include "nrf_drv_twi.h"
+#include "nrf_delay.h"
 #include "config.h"
 #include "MPU6050.h"
-#include "LSM6DS3.h"
+#include "LSM6DS3IMU.h"
+#include "zikto_ast.h"
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
@@ -62,6 +64,11 @@
 #define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000, APP_TIMER_PRESCALER) /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 #define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
 
+#define __DEBUG__PRINT__
+#ifdef __DEBUG__PRINT__
+    #define __DEBUG_PRINT_I2C__  0
+#endif
+
 const char MSG_LINE[] = "===========================================\r\n";
 const char MID_LINE[] =   "-------------------------------------------\r\n\n";
 #define START_STRING     "          **   LSM6DS3 MOCKUP  **\n"                                /**< The string that will be sent over the UART when the application starts. */
@@ -74,17 +81,21 @@ const char MID_LINE[] =   "-------------------------------------------\r\n\n";
 
 static const nrf_drv_twi_t m_twi_master = NRF_DRV_TWI_INSTANCE(MASTER_TWI_INST);
 void printHelp();
-void func1(void);
+void mpu_init(void);
+void func2();
+int is_xl_rdy();
 static ret_code_t write_register(size_t addr, uint8_t pdata);
 static ret_code_t read_register(size_t addr, uint8_t * pdata);
 ret_code_t I2CwriteBits(uint8_t devAddr, uint8_t regAddr, uint8_t bitStart, uint8_t length, uint8_t data);
 ret_code_t I2CwriteBit(uint8_t devAddr, uint8_t regAddr, uint8_t bitNum, uint8_t data);
 static ret_code_t twi_master_init(void);
-void readData();
+int readData();
 void fifoBegin();
 uint16_t fifoGetStatus(void);
-uint16_t fifoRead( void );
-
+//uint16_t fifoRead( void );
+void usb_rx_notify();
+void usb_cmd(char c);
+    
 typedef struct{
 	struct{
 			float x;
@@ -110,8 +121,8 @@ static bool rx_received = false;
 static uint8_t rx_data[20];
 data_t data = {{0,0,0},{0,0,0}};
 
-
-
+extern ast_calendar_t Time;
+volatile uint32_t prev_time = 0;
 
 
 /**@brief Function for assert macro callback.
@@ -529,6 +540,8 @@ static void power_manage(void)
     APP_ERROR_CHECK(err_code);
 }
 
+int sampling_counter = 0;
+    
 
 /**@brief Application main function.
  */
@@ -536,66 +549,97 @@ int main(void)
 {
     uint32_t err_code;
     bool erase_bonds;
-    uint8_t  start_string[] = START_STRING;
     
     // Initialize.
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, false);
     uart_init();
+    ast_init();
     buttons_leds_init(&erase_bonds);
+    
+    /* BLE Start */ 
     ble_stack_init();
     gap_params_init();
     services_init();
     advertising_init();
     conn_params_init();
-    
-	 
-		printf("%s",MSG_LINE);
-		printf("%s",start_string);
-		printf("\n");
-		printf("%s",MID_LINE);
-
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
     
-	  err_code = twi_master_init();
+	/* I2C Start */
+    err_code = twi_master_init();
     APP_ERROR_CHECK(err_code);
-    printHelp();
+    
+    uint32_t sys_clk = 0;
     // Enter main loop.
+    mpu_init();
+      
     for (;;)
     {
       uint8_t c = 0;
-			while(c == 0)
-        {
-          c = getchar();
-        }
-        switch((char)c)
-        {
-        default:
-					printf("You selected %c\n", (char)c);
-				
-				case '\n':
-        case '\r':
-            break;
+      
+      // SUPPOSED TO BE AN INTERRUPT
+      usb_rx_notify();
+      
+    if(readData() == 0){
+        sampling_counter++;
+    }
+    
+    
+    if(prev_time != cal_get_whole()){
+      printf("Sampling @ %dHz\n",sampling_counter);
+      sampling_counter = 0;
+      prev_time = cal_get_whole();
+      }
+      
         
-				case '1':
-            func1();
-            break;
-        
-				case '2':
-            readData();
-            break;
-				
-				case '?':
-						printHelp();
-				
-        }
-				//power_manage();
-        }
+     //power_manage();
+    }
 		
  
 }// end main
 
 
+void usb_rx_notify()
+{
+    uint8_t c = 0;
+    
+    app_uart_get(&c);
+    
+    if(c) usb_cmd((char)c);
+}
+
+void usb_cmd(char c)
+{
+    switch(c)
+        {
+            default:
+    			printf("You selected %c\n", (char)c);
+                       
+    		case '\n':
+            case '\r':
+                break;
+            
+    		case '1':
+                mpu_init();
+                break;
+            
+    		case '2':
+                printf("cmd2 :: readData() = %d\n",readData());
+                break;
+            case '3':
+                print_date_time();
+                break;
+            		
+    		case '?':
+    			uint8_t  start_string[] = START_STRING;
+                printf("%s",MSG_LINE);
+                printf("%s",start_string);
+                printf("\n");
+                print_date_time();
+                printf("%s",MID_LINE);
+                printHelp();
+				
+        }
+}
 /** 
  * @}
  */
@@ -603,31 +647,39 @@ int main(void)
 void printHelp(){
 	printf("     COMMAND LIST  \n");
 	printf("1 :  Initialise Accel Gyro\n");
-	printf("2 :  Get Instantial Data\n");
+	printf("2 :  \n");
+	printf("3 :  Print DateTime\n\n");
 	printf("? :  Print Command List\n");
 						
 }
+/*
+*/
 
-void func1(void){
+void mpu_init(void){
 	printf("mpu init()\n");
-	printf("LMS6DS3 Default Address : 0x%.4x\n",LSM6DS3_SLAVE_ADDR);
+	printf("Slave Address : 0x%.4x\n",LSM6DS3_SLAVE_ADDR);
 	
 	uint8_t rd;
 	printf("Testing Connection... ");
 	read_register(LSM6DS3_ACC_GYRO_WHO_AM_I_REG,  &rd);
-	//printf("who_am_i reg : 0x%.2x\n",rd);
 	printf("%s\n", (rd==(LSM6DS3_SLAVE_ADDR-0x2))?"Successful":"Failed" );
 	
-	
 	uint8_t dataToWrite = 0;
-	
 	
 	printf("Set Accelerometer..\n");
 	dataToWrite |= LSM6DS3_ACC_GYRO_BW_XL_100Hz; // BandWith = 100hz
 	dataToWrite |= LSM6DS3_ACC_GYRO_FS_XL_4g;
 	dataToWrite |= LSM6DS3_ACC_GYRO_ODR_XL_208Hz;
+    // dataToWrite |= LSM6DS3_ACC_GYRO_ODR_XL_13Hz;
+    
 	write_register(LSM6DS3_ACC_GYRO_CTRL1_XL, dataToWrite);
-	read_register(LSM6DS3_ACC_GYRO_CTRL4_C,  &rd);
+	
+    // dataToWrite = 0;
+    // dataToWrite |= LSM6DS3_ACC_GYRO_INT1_DRDY_XL_ENABLED;
+    // dataToWrite |= LSM6DS3_ACC_GYRO_INT1_DRDY_G_ENABLED;
+    //write_register(LSM6DS3_ACC_GYRO_INT1_CTRL, dataToWrite);
+
+    read_register(LSM6DS3_ACC_GYRO_CTRL4_C,  &rd);
 	dataToWrite &= ~((uint8_t)LSM6DS3_ACC_GYRO_BW_SCAL_ODR_ENABLED);
 	if(true) dataToWrite |= LSM6DS3_ACC_GYRO_BW_SCAL_ODR_ENABLED; // supposed to be if(settings.accelODRoff)
 	write_register(LSM6DS3_ACC_GYRO_CTRL4_C, dataToWrite);
@@ -638,24 +690,29 @@ void func1(void){
 	dataToWrite |= LSM6DS3_ACC_GYRO_ODR_G_208Hz;
 	write_register(LSM6DS3_ACC_GYRO_CTRL2_G, dataToWrite);
 	
-	printf("FIFO Setup..\n");
-	fifoBegin();
-	//readRegister(&dataToWrite, LSM6DS3_ACC_GYRO_CTRL4_C);
 	
-	//write_register(MPU6050_RA_GYRO_CONFIG,  MPU6050_GYRO_FS_250<<3); // Gyro Config Addr : 0x1B
-  //	write_register(MPU6050_RA_ACCEL_CONFIG,  MPU6050_ACCEL_FS_2<<3); // Accel Config Addr : 0x1C
-	
-	//I2CwriteBit(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_PWR_MGMT_1, MPU6050_PWR1_SLEEP_BIT, false);
-	
-	// Test Connection
-	
-	
-	
-	
+}
+/*
+*/
+void func2(){
+    printf("IS_XL_DRDY: %s\n",is_xl_rdy()? "yes":"no");
+}
+/*
+*/
+int is_xl_rdy(){
+    uint8_t rd;
+    //nrf_delay_us(5000);
+    
+    read_register(LSM6DS3_ACC_GYRO_STATUS_REG,  &rd);
+    // printf("ACC_GYRO_STATUS_REG :: 0x%02x\n",rd);
+    return (int)(rd &  LSM6DS3_ACC_GYRO_XLDA_DATA_AVAIL);
+    
 }
 
 
 
+/*
+*/
 void fifoBegin(){
 	
 	int threshold = 3000;
@@ -705,6 +762,8 @@ void fifoBegin(){
 }
 
 
+/*
+*/
 uint16_t fifoGetStatus(){
 	uint8_t tempReadByte = 0;
 	uint16_t tempAccumulator = 0;
@@ -714,39 +773,48 @@ uint16_t fifoGetStatus(){
 	tempAccumulator |= (tempReadByte << 8);
 }
 
-void readData(){
-	int16_t fifoData = 0;
+/*
+*/
+int readData(){
+	static int read_en = 1;
+    int16_t fifoData = 0;
 	uint8_t tempReadByte;
-
-	// Accel x
-	if(read_register(LSM6DS3_ACC_GYRO_OUTX_L_XL,&tempReadByte)) return;
+    
+    if(is_xl_rdy() == 0){
+        read_en = 1;
+        return 1;
+    }
+    
+    // Accel x
+	if(read_register(LSM6DS3_ACC_GYRO_OUTX_L_XL,&tempReadByte)) return 2;
 	fifoData = tempReadByte;
-	if(read_register(LSM6DS3_ACC_GYRO_OUTX_H_XL,&tempReadByte)) return;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTX_H_XL,&tempReadByte)) return 2;
 	fifoData |= (tempReadByte << 8);
 	
 	data.accel.x = (float) fifoData/835.918367;
 	
 	// Accel y
-	if(read_register(LSM6DS3_ACC_GYRO_OUTY_L_XL,&tempReadByte)) return;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTY_L_XL,&tempReadByte)) return 2;
 	fifoData = tempReadByte;
-	if(read_register(LSM6DS3_ACC_GYRO_OUTY_H_XL,&tempReadByte)) return;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTY_H_XL,&tempReadByte)) return 2;
 	fifoData |= (tempReadByte << 8);
 	
 	data.accel.y = (float) fifoData/835.918367;
 	
 	// Accel z
-	if(read_register(LSM6DS3_ACC_GYRO_OUTZ_L_XL,&tempReadByte)) return;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTZ_L_XL,&tempReadByte)) return 2;
 	fifoData = tempReadByte;
-	if(read_register(LSM6DS3_ACC_GYRO_OUTZ_H_XL,&tempReadByte)) return;
+	if(read_register(LSM6DS3_ACC_GYRO_OUTZ_H_XL,&tempReadByte)) return 2;
 	fifoData |= (tempReadByte << 8);
 	
 	data.accel.z = (float) fifoData/835.918367;
 	
 	char data_wr[20];
-	sprintf(data_wr,"%2.2f,%2.2f,%2.2f ",data.accel.x, data.accel.y, data.accel.z);
-	printf("accel data : %s\n",data_wr);
+	//sprintf(data_wr,"%2.2f,%2.2f,%2.2f ",data.accel.x, data.accel.y, data.accel.z);
+	//printf("accel : %s\n",data_wr);
 	ble_nus_string_send(&m_nus, data_wr, 20);
-
+    read_en = 0;
+    return 0;
 }
 
 
@@ -771,7 +839,10 @@ static ret_code_t read_register(size_t addr, uint8_t * pdata){
 static ret_code_t write_register(size_t addr, uint8_t pdata)
 {
     ret_code_t ret;
-		printf("writing 0x%02x on REG 0x%02x..\n",pdata,addr);
+
+#if __DEBUG_PRINT_I2C__
+	printf("writing 0x%02x on REG 0x%02x..\n",pdata,addr);
+#endif
     do
     {
         uint8_t addr8 = (uint8_t)addr;

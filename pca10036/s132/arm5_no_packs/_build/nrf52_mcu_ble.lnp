@@ -1,5 +1,6 @@
 --cpu Cortex-M4.fp
 ".\_build\main.o"
+".\_build\zikto_ast.o"
 ".\_build\bsp.o"
 ".\_build\bsp_btn_ble.o"
 ".\_build\ble_advdata.o"
@@ -14,6 +15,7 @@
 ".\_build\nrf_drv_uart.o"
 ".\_build\pstorage.o"
 ".\_build\nrf_drv_twi.o"
+".\_build\nrf_drv_clock.o"
 ".\_build\app_button.o"
 ".\_build\app_error.o"
 ".\_build\app_fifo.o"
