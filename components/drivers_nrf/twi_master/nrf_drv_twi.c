@@ -537,7 +537,9 @@ static ret_code_t twi_transfer(nrf_drv_twi_t const * const p_instance,
             if (p_transfer->error_condition)
             {
                 p_transfer->transfer_in_progress = false;
-								printf("NRF_ERROR_INTERNAL\n");
+#ifdef __DEBUG_PRINT_I2C__
+                printf("NRF_ERROR_INTERNAL\n");
+#endif
                 return NRF_ERROR_INTERNAL;
             }
         }

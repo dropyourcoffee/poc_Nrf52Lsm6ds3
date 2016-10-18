@@ -1,9 +1,16 @@
 #include "stdint.h"
+#include "app_timer.h"
+#include "nrf_drv_clock.h"
+#include "bsp.h"
 
 #pragma anon_unions
 
-#define TICK_MILISEC  0x13d8//0x71c8b>>7)
 #define IS_LEAP_YEAR(a)	((a % 400) == 0 || ((a % 4) == 0 && (a % 100)))
+
+#define APP_TIMER_PRESCALER                              5               /**< Value of the RTC1 PRESCALER register. */
+#define APP_TIMER_MAX_TIMERS                             6               /**< Maximum number of simultaneously created timers. */
+#define APP_TIMER_OP_QUEUE_SIZE                       4               /**< Size of timer operation queues. */
+
 
 struct ast_calv {
 	/** Seconds in the range 0 to 59. */
@@ -29,7 +36,6 @@ typedef struct  {
 	};
 } ast_calendar_t;
 
-void system_tick();
 uint32_t cal_get_whole();
 void print_date_time();
 uint32_t get_tick_cnt_();

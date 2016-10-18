@@ -63,3 +63,6 @@
 .\_build\main.o: ..\..\..\MPU6050.h
 .\_build\main.o: ..\..\..\drvMPU\LSM6DS3IMU.h
 .\_build\main.o: ..\..\..\util\zikto_ast.h
+.\_build\main.o: ..\..\..\components\drivers_nrf\clock\nrf_drv_clock.h
+.\_build\main.o: ..\..\..\components\libraries\util\nrf_assert.h
+.\_build\main.o: ..\..\..\components\drivers_nrf\hal\nrf_clock.h

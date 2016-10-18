@@ -121,9 +121,8 @@ static bool rx_received = false;
 static uint8_t rx_data[20];
 data_t data = {{0,0,0},{0,0,0}};
 
-volatile ast_calendar_t Time = {0};
+extern ast_calendar_t Time;
 volatile uint32_t prev_time = 0;
-
 
 
 /**@brief Function for assert macro callback.
@@ -550,30 +549,24 @@ int main(void)
 {
     uint32_t err_code;
     bool erase_bonds;
-    uint8_t  start_string[] = START_STRING;
     
     // Initialize.
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, false);
     uart_init();
+    ast_init();
     buttons_leds_init(&erase_bonds);
+    
+    /* BLE Start */ 
     ble_stack_init();
     gap_params_init();
     services_init();
     advertising_init();
     conn_params_init();
-    
-	 
-		printf("%s",MSG_LINE);
-		printf("%s",start_string);
-		printf("\n");
-		printf("%s",MID_LINE);
-
     err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
     APP_ERROR_CHECK(err_code);
     
-	err_code = twi_master_init();
+	/* I2C Start */
+    err_code = twi_master_init();
     APP_ERROR_CHECK(err_code);
-    printHelp();
     
     uint32_t sys_clk = 0;
     // Enter main loop.
@@ -583,7 +576,6 @@ int main(void)
     {
       uint8_t c = 0;
       
-      system_tick();
       // SUPPOSED TO BE AN INTERRUPT
       usb_rx_notify();
       
@@ -595,7 +587,6 @@ int main(void)
     if(prev_time != cal_get_whole()){
       printf("Sampling @ %dHz\n",sampling_counter);
       sampling_counter = 0;
-      print_date_time();
       prev_time = cal_get_whole();
       }
       
@@ -635,16 +626,17 @@ void usb_cmd(char c)
                 printf("cmd2 :: readData() = %d\n",readData());
                 break;
             case '3':
-                printf("cal_get_whole() :: %d\n",cal_get_whole());
+                print_date_time();
                 break;
-            case '4':
-                printf("sampling @ %dHz\n",sampling_counter);
-                sampling_counter = 0;
-                
-                break;
-    				
+            		
     		case '?':
-    			printHelp();
+    			uint8_t  start_string[] = START_STRING;
+                printf("%s",MSG_LINE);
+                printf("%s",start_string);
+                printf("\n");
+                print_date_time();
+                printf("%s",MID_LINE);
+                printHelp();
 				
         }
 }
@@ -655,7 +647,8 @@ void usb_cmd(char c)
 void printHelp(){
 	printf("     COMMAND LIST  \n");
 	printf("1 :  Initialise Accel Gyro\n");
-	printf("2 :  Get Instantial Data\n");
+	printf("2 :  \n");
+	printf("3 :  Print DateTime\n\n");
 	printf("? :  Print Command List\n");
 						
 }
